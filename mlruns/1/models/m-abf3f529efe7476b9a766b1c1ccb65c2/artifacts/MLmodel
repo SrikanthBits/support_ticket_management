@@ -1,0 +1,23 @@
+artifact_path: file:C:/Users/THIYA/support_ticket_management/mlruns/1/models/m-abf3f529efe7476b9a766b1c1ccb65c2/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.skops
+    predict_fn: predict
+    python_version: 3.13.14
+  sklearn:
+    code: null
+    pickled_model: model.skops
+    serialization_format: skops
+    sklearn_version: 1.9.0
+    skops_trusted_types: null
+mlflow_version: 3.15.1
+model_id: m-abf3f529efe7476b9a766b1c1ccb65c2
+model_size_bytes: 210527
+model_uuid: m-abf3f529efe7476b9a766b1c1ccb65c2
+prompts: null
+run_id: ada01da69c01413285f1adf062ff82c5
+utc_time_created: '2026-08-25 09:00:32.396786'
