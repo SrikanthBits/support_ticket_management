@@ -35,7 +35,7 @@ print("Dataset loaded successfully.", df.head())
 
 db_path = os.path.abspath("data/customer_support_tickets_features.db")
 
-# Feature store - Save to SQLite using sqlite3
+# Feature stoSave to SQLite using sqlite3
 conn = sqlite3.connect(db_path)
 df.to_sql("customer_support_tickets", conn, if_exists="replace", index=False)
 conn.close()
@@ -54,3 +54,30 @@ connection.close()
 print("Rows in SQLite database:", len(features))
 print("Columns in SQLite database:", features.columns)
 print("Data loaded from SQLite database successfully.", features.head())
+
+# Schema validation
+expected_cols = [
+    "Ticket ID","Customer Name","Customer Email","Customer Age","Customer Gender",
+    "Product Purchased","Date of Purchase","Ticket Type","Ticket Subject",
+    "Ticket Description","Ticket Status","Resolution","Ticket Priority",
+    "Ticket Channel","First Response Time","Time to Resolution","Customer Satisfaction Rating"
+]
+missing_cols = [c for c in expected_cols if c not in df.columns]
+if missing_cols:
+    raise ValueError(f"Missing columns: {missing_cols}")
+
+# Duplicate removal
+df = df.drop_duplicates(subset=["Ticket ID"])
+
+# Combine text features
+df["text"] = df["Ticket Subject"].fillna("") + " " + df["Ticket Description"].fillna("")
+df["clean_text"] = df["text"].apply(clean_text)
+
+# Drop invalid/missing target
+df = df.dropna(subset=["Ticket Type"])
+X = df["clean_text"]
+y = df["Ticket Type"]
+
+# Dataset statistics
+print("Dataset size:", len(df))
+print("Class distribution:\n", y.value_counts())
