@@ -35,7 +35,7 @@ print("Dataset loaded successfully.", df.head())
 
 db_path = os.path.abspath("data/customer_support_tickets_features.db")
 
-# Feature stoSave to SQLite using sqlite3
+# Features toSave to SQLite using sqlite3
 conn = sqlite3.connect(db_path)
 df.to_sql("customer_support_tickets", conn, if_exists="replace", index=False)
 conn.close()
@@ -81,3 +81,51 @@ y = df["Ticket Type"]
 # Dataset statistics
 print("Dataset size:", len(df))
 print("Class distribution:\n", y.value_counts())
+
+# -------------------------------
+# M3: Experiments with MLflow
+# -------------------------------
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1,2))
+X_train_vec = vectorizer.fit_transform(X_train)
+X_test_vec = vectorizer.transform(X_test)
+
+mlflow.set_experiment("CustomerSupportClassifier")
+
+models = {
+    "LogisticRegression": LogisticRegression(max_iter=300, C=1.0),
+    "MultinomialNB": MultinomialNB(),
+    "LinearSVM": LinearSVC(C=1.0)
+}
+
+results = []
+best_model, best_f1 = None, 0
+
+for name, clf in models.items():
+    with mlflow.start_run(run_name=name):
+        clf.fit(X_train_vec, y_train)
+        preds = clf.predict(X_test_vec)
+        acc = accuracy_score(y_test, preds)
+        prec = precision_score(y_test, preds, average="weighted")
+        rec = recall_score(y_test, preds, average="weighted")
+        f1 = f1_score(y_test, preds, average="weighted")
+
+        mlflow.log_param("model", name)
+        mlflow.log_param("max_features", 5000)
+        mlflow.log_param("ngram_range", "(1,2)")
+        mlflow.log_metric("accuracy", acc)
+        mlflow.log_metric("precision", prec)
+        mlflow.log_metric("recall", rec)
+        mlflow.log_metric("f1_score", f1)
+        mlflow.sklearn.log_model(clf, name=f"{name}_Model")
+
+        results.append([name, acc, prec, rec, f1])
+        if f1 > best_f1:
+            best_f1, best_model = f1, clf
+
+# Comparison table 
+results_df = pd.DataFrame(results, columns=["Model","Accuracy","Precision","Recall","F1"])
+print("\nModel Comparison Table:\n", results_df)
+
+print("✅ Selected best model:", results_df.loc[results_df["F1"].idxmax(),"Model"])
