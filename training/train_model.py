@@ -7,6 +7,7 @@ from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score,precision_score, recall_score, f1_score
 import mlflow, mlflow.sklearn
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 import joblib, re , string
 import os
 import json
@@ -129,3 +130,28 @@ results_df = pd.DataFrame(results, columns=["Model","Accuracy","Precision","Reca
 print("\nModel Comparison Table:\n", results_df)
 
 print("✅ Selected best model:", results_df.loc[results_df["F1"].idxmax(),"Model"])
+
+joblib.dump(best_model, "support_model.pkl")
+joblib.dump(vectorizer, "support_vectorizer.pkl")
+
+# -------------------------------
+# M4: REST API with FastAPI
+# -------------------------------
+app = FastAPI(title="Customer Support Ticket Classifier API")
+
+class TicketInput(BaseModel):
+    subject: str
+    description: str
+
+@app.post("/predict")
+def predict_ticket(input: TicketInput):
+    text = input.subject + " " + input.description
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Empty ticket input")
+    vec = vectorizer.transform([clean_text(text)])
+    pred = best_model.predict(vec)[0]
+    return {"prediction": str(pred)}
+
+# Demonstration of API request/response
+print("\nSample API Test:")
+print(predict_ticket(TicketInput(subject="Payment problem", description="My payment was deducted twice.")))
