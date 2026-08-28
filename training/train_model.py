@@ -7,7 +7,7 @@ from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score,precision_score, recall_score, f1_score
 import mlflow, mlflow.sklearn
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import joblib, re , string
 import os
 import json
@@ -137,21 +137,38 @@ joblib.dump(vectorizer, "support_vectorizer.pkl")
 # -------------------------------
 # M4: REST API with FastAPI
 # -------------------------------
-app = FastAPI(title="Customer Support Ticket Classifier API")
+app = FastAPI(
+    title="Customer Support Ticket Classifier API",
+    description="Predict the category of a customer support ticket from its subject and description.",
+    version="1.0.0",
+)
 
 class TicketInput(BaseModel):
-    subject: str
-    description: str
+    subject: str = Field(..., examples=["Payment problem"])
+    description: str = Field(..., examples=["My payment was deducted twice."])
 
-@app.post("/predict")
-def predict_ticket(input: TicketInput):
+@app.post("/predict_with_logging")
+def predict_and_log(input: TicketInput):
     text = input.subject + " " + input.description
-    if not text.strip():
-        raise HTTPException(status_code=400, detail="Empty ticket input")
     vec = vectorizer.transform([clean_text(text)])
     pred = best_model.predict(vec)[0]
+    log_prediction(text, pred)
     return {"prediction": str(pred)}
 
-# Demonstration of API request/response
-print("\nSample API Test:")
-print(predict_ticket(TicketInput(subject="Payment problem", description="My payment was deducted twice.")))
+@app.post("/drift_score")
+def drift_score(threshold: float = 0.1):
+    logs = pd.read_csv(LOG_FILE, names=["time","text","pred"])
+    pred_dist = logs["pred"].value_counts(normalize=True)
+    train_dist = pd.Series(y_train).value_counts(normalize=True)
+    drift = (pred_dist - train_dist).abs().sum()
+    retrain = drift > threshold
+    return {"drift_score": float(drift), "trigger_retrain": retrain}
+
+def retrain_model():
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    new_vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1,2))
+    X_train_vec = new_vectorizer.fit_transform(X_train)
+    best_model.fit(X_train_vec, y_train)
+    joblib.dump(best_model, "support_model.pkl")
+    joblib.dump(new_vectorizer, "support_vectorizer.pkl")
+    print("✅ Model retrained.")
