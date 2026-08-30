@@ -13,6 +13,8 @@ import os
 import json
 import sqlite3
 
+from datetime import datetime
+
 #configuration 
 EXPERIMENT_NAME = "CustomerSupportClassifier"
 FEATURES_DB_PATH = "data/customer_support_tickets_features.db"
@@ -169,6 +171,23 @@ def predict_and_log(input: TicketInput):
     log_prediction(text, pred)
     return {"prediction": str(pred)}
 
+# -------------------------------
+# M5: Monitoring, Drift & Retraining
+# -------------------------------
+LOG_FILE = "monitoring_log.csv"
+
+def log_prediction(text, pred):
+    with open(LOG_FILE, "a") as f:
+        f.write(f"{datetime.datetime.now()},{text},{pred}\n")
+
+@app.post("/predict_with_logging")
+def predict_and_log(input: TicketInput):
+    text = input.subject + " " + input.description
+    vec = vectorizer.transform([clean_text(text)])
+    pred = best_model.predict(vec)[0]
+    log_prediction(text, pred)
+    return {"prediction": str(pred)}
+
 @app.post("/drift_score")
 def drift_score(threshold: float = 0.1):
     if not os.path.exists(LOG_FILE):
@@ -192,3 +211,54 @@ def retrain_model():
     joblib.dump(best_model, "support_model.pkl")
     joblib.dump(new_vectorizer, "support_vectorizer.pkl")
     print("✅ Model retrained.")
+
+    # Drift simulation demo
+simulate_samples = [
+    "Bruh app keeps crashing lol",
+    "Need urgent help ASAP 🔥",
+    "This service is mid, not happy",
+    "Bro payment got yeeted twice 😭",
+    "How do I cancel this order ASAP?"
+]
+for s in simulate_samples:
+    print("Input:", s, "→ Prediction:", best_model.predict(vectorizer.transform([clean_text(s)]))[0])
+
+# -------------------------------
+# Flow Chart (ASCII)
+# -------------------------------
+print("""
+CUSTOMER SUPPORT DATA
+        │
+        ▼
+┌─────────────────┐
+│ M2 Data Pipeline│
+│ Validation      │
+│ Cleaning        │
+│ TF-IDF          │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ M3 Experiments  │
+│ Logistic Reg.   │
+│ Naive Bayes     │
+│ Linear SVM      │
+│ MLflow Tracking │
+└────────┬────────┘
+         │
+   Best Model
+         │
+         ▼
+┌─────────────────┐
+│ M4 FastAPI      │
+│ POST /predict   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ M5 Monitoring   │
+│ Logging         │
+│ Drift Detection │
+│ Retraining      │
+└─────────────────�
+""")
