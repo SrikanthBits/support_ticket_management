@@ -1,0 +1,17 @@
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Git and editor metadata
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Local generated data/logs
+data/prediction_logs.csv
+data/*.db
+*.log

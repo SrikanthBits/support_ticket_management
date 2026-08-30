@@ -13,6 +13,10 @@ import os
 import json
 import sqlite3
 
+#configuration 
+EXPERIMENT_NAME = "CustomerSupportClassifier"
+FEATURES_DB_PATH = "data/customer_support_tickets_features.db"
+
 # Load dataset
 print("SCRIPT STARTED") # <-- Add this line
 print("Does file exist?:", os.path.exists('data/customer_support_tickets.csv'))
@@ -34,7 +38,7 @@ print("Dataset loaded successfully.", df.head())
 
 # Features stored in SQLite database
 
-db_path = os.path.abspath("data/customer_support_tickets_features.db")
+db_path = os.path.abspath(FEATURES_DB_PATH)
 
 # Features toSave to SQLite using sqlite3
 conn = sqlite3.connect(db_path)
@@ -47,7 +51,7 @@ conn.close()
 print("✅ Table created from CSV headers")
 
 
-connection = sqlite3.connect('data/customer_support_tickets_features.db')
+connection = sqlite3.connect(FEATURES_DB_PATH)
 print(connection.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall())
 features = pd.read_sql_query("SELECT * FROM customer_support_tickets", connection)
 connection.close()
@@ -92,7 +96,7 @@ vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1,2))
 X_train_vec = vectorizer.fit_transform(X_train)
 X_test_vec = vectorizer.transform(X_test)
 
-mlflow.set_experiment("CustomerSupportClassifier")
+mlflow.set_experiment(EXPERIMENT_NAME)
 
 models = {
     "LogisticRegression": LogisticRegression(max_iter=300, C=1.0),
