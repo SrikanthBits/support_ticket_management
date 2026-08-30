@@ -1,0 +1,45 @@
+{
+  "model_name": "CustomerSupportClassifier",
+  "target_column": "Ticket Type",
+  "feature_columns": [
+    "Ticket Subject",
+    "Ticket Description"
+  ],
+  "text_columns": [
+    "Ticket Subject",
+    "Ticket Description"
+  ],
+  "preprocessing": {
+    "lowercase": true,
+    "remove_urls": true,
+    "remove_mentions": true,
+    "remove_hashtags": true,
+    "remove_punctuation": true,
+    "merge_fields": [
+      "Ticket Subject",
+      "Ticket Description"
+    ]
+  },
+  "training": {
+    "vectorizer": "TfidfVectorizer",
+    "max_features": 5000,
+    "ngram_range": [1, 2],
+    "model_candidates": [
+      "LogisticRegression",
+      "MultinomialNB",
+      "LinearSVM"
+    ],
+    "test_size": 0.2,
+    "random_state": 42,
+    "stratify": true
+  },
+  "api": {
+    "input_schema": {
+      "subject": "string",
+      "description": "string"
+    },
+    "output_schema": {
+      "prediction": "string"
+    }
+  }
+}
