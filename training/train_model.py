@@ -12,6 +12,7 @@ import joblib, re , string
 import os
 import json
 import sqlite3
+import csv
 
 from datetime import datetime
 
@@ -140,14 +141,14 @@ print("✅ Selected best model:", results_df.loc[results_df["F1"].idxmax(),"Mode
 joblib.dump(best_model, "support_model.pkl")
 joblib.dump(vectorizer, "support_vectorizer.pkl")
 
-LOG_FILE = os.path.abspath("data/prediction_logs.csv")
+LOG_FILE = os.path.abspath("monitoring_log.csv")
 
 
 def log_prediction(text, prediction):
     os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        timestamp = pd.Timestamp.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-        f.write(f"{timestamp},{text},{prediction}\n")
+    with open(LOG_FILE, "a", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([pd.Timestamp.utcnow().strftime("%Y-%m-%dT%H:%M:%S"), text, prediction])
 
 # -------------------------------
 # M4: REST API with FastAPI
@@ -163,7 +164,6 @@ class TicketInput(BaseModel):
     description: str = Field(..., examples=["My payment was deducted twice."])
 
 @app.post("/predict")
-@app.post("/predict_with_logging")
 def predict_and_log(input: TicketInput):
     text = input.subject + " " + input.description
     vec = vectorizer.transform([clean_text(text)])
@@ -174,11 +174,7 @@ def predict_and_log(input: TicketInput):
 # -------------------------------
 # M5: Monitoring, Drift & Retraining
 # -------------------------------
-LOG_FILE = "monitoring_log.csv"
 
-def log_prediction(text, pred):
-    with open(LOG_FILE, "a") as f:
-        f.write(f"{datetime.datetime.now()},{text},{pred}\n")
 
 @app.post("/predict_with_logging")
 def predict_and_log(input: TicketInput):
@@ -188,17 +184,35 @@ def predict_and_log(input: TicketInput):
     log_prediction(text, pred)
     return {"prediction": str(pred)}
 
+
 @app.post("/drift_score")
 def drift_score(threshold: float = 0.1):
     if not os.path.exists(LOG_FILE):
         return {"drift_score": 0.0, "trigger_retrain": False}
 
-    logs = pd.read_csv(LOG_FILE, names=["time", "text", "pred"])
+    try:
+        logs = pd.read_csv(
+            LOG_FILE,
+            header=None,
+            names=["time", "text", "pred"],
+            engine="python",
+            on_bad_lines="skip",
+            quotechar='"',
+            escapechar='\\',
+        )
+    except Exception:
+        logs = pd.DataFrame(columns=["time", "text", "pred"])
+
     if logs.empty:
         return {"drift_score": 0.0, "trigger_retrain": False}
 
     pred_dist = logs["pred"].value_counts(normalize=True)
     train_dist = pd.Series(y_train).value_counts(normalize=True)
+
+    all_labels = set(train_dist.index).union(set(pred_dist.index))
+    train_dist = train_dist.reindex(all_labels, fill_value=0)
+    pred_dist = pred_dist.reindex(all_labels, fill_value=0)
+
     drift = float((pred_dist - train_dist).abs().sum())
     trigger_retrain = bool(drift > threshold)
     return {"drift_score": drift, "trigger_retrain": trigger_retrain}
