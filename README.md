@@ -25,7 +25,7 @@ The system:
 - `feature.json` - feature metadata and model contract
 - `data/customer_support_tickets.csv` - source ticket dataset
 - `data/customer_support_tickets_features.db` - SQLite version of the feature dataset
-- `data/prediction_logs.csv` - prediction log file generated at runtime
+- `monitoring_log.csv` - single runtime log file used for prediction monitoring and drift checks
 - `mlruns/` - MLflow experiment artifacts
 - `.dockerignore` - files excluded from Docker build context
 
@@ -142,13 +142,13 @@ Then open:
 
 ## Monitoring and Drift Detection
 
-The project logs prediction data to `data/prediction_logs.csv` and `monitoring_log.csv` to support:
+The project uses a single runtime log file, `monitoring_log.csv`, to support:
 
 - monitoring prediction behavior
-- tracking drift between new predictions and training distribution
+- tracking drift between recent predictions and the training distribution
 - retraining decisions when the distribution changes beyond a threshold
 
-The drift logic is implemented in the `drift_score` endpoint and compares prediction frequencies with the original training label distribution.
+The drift logic is implemented in the `drift_score` endpoint and compares prediction frequencies with the original training label distribution. Ticket text is written using CSV-safe formatting so commas in the message body do not break the drift calculation.
 
 ## Docker Setup
 
@@ -185,7 +185,7 @@ The project includes a feature contract in `feature.json` that documents the exp
 ## Important Notes
 
 - The project expects the CSV file at `data/customer_support_tickets.csv`.
-- The app writes SQLite and log files under the `data/` folder.
+- The app writes the SQLite feature table under `data/` and the runtime monitoring log in the project root as `monitoring_log.csv`.
 - `mlruns/` contains experiment artifacts produced by MLflow.
 - Docker builds should exclude local environment folders such as `.venv`, `mlruns`, and generated logs using `.dockerignore`.
 - Python 3.11 is the recommended environment for compatibility with the training stack and Docker image.
